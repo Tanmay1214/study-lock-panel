@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Study Lock Panel</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, child } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMppQ_tX1LXZgA3yvRJHtJcEUkGERFiNI",
+      authDomain: "study-mode-aed91.firebaseapp.com",
+      databaseURL: "https://study-mode-aed91-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "study-mode-aed91",
+      storageBucket: "study-mode-aed91.appspot.com",
+      messagingSenderId: "531142916482",
+      appId: "1:531142916482:web:bc0b3ed4f46f554da9b79b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dbRef = ref(db);
+
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex;
+    }
+
+    function showPanel() {
+  document.getElementById("loginForm").style.display = "none";
+  document.getElementById("controlPanel").style.display = "block";
+  document.getElementById("logsPanel").style.display = "block";
+  document.getElementById("logoutBtn").style.display = "inline-block";
+}
+
+
+    window.login = async function () {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both fields.");
+        return;
+      }
+
+      try {
+        const snapshot = await get(child(dbRef, "admin"));
+        if (!snapshot.exists()) {
+          alert("Admin data not found.");
+          return;
+        }
+
+        const adminData = snapshot.val();
+        const hashedPassword = await hashPassword(password);
+
+        if (username === adminData.username && hashedPassword === adminData.password) {
+            localStorage.setItem("isLoggedIn", "true");
+          document.getElementById("loginForm").style.display = "none";
+          document.getElementById("controlPanel").style.display = "block";
+          document.getElementById("logsPanel").style.display="block";
+          document.getElementById("logoutBtn").style.display= "inline-block";
+        } else {
+          alert("Invalid credentials.");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+     window.logout = function () {
+    localStorage.removeItem("isLoggedIn");
+    location.reload();
+    };
+
+  // Auto-login if already logged in
+    if (localStorage.getItem("isLoggedIn") === "true") {
+    showPanel();
+     }
+     
+
+    window.lock = function () {
+      set(ref(db, "study_lock"), {
+        status: "locked"
+      });
+    };
+
+    window.unlock = function () {
+      set(ref(db, "study_lock"), {
+        status: "unlocked"
+      });
+    };
+
+    onValue(ref(db, "study_lock"), (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.status) {
+        document.getElementById("status").innerText = `Status: ${data.status.toUpperCase()}`;
+      } else {
+        document.getElementById("status").innerText = "Status not set.";
+      }
+    });
+
+    // Load Sign In / Sign Off logs
+const logsRef = ref(db, "users");
+onValue(logsRef, (snapshot) => {
+  const tbody = document.getElementById("logBody");
+  tbody.innerHTML = ""; // Clear existing rows
+
+  if (snapshot.exists()) {
+    const logs = snapshot.val();
+
+for (const username in logs) {
+    const userDates = logs[username];
+
+  // 👉 Valid date keys filter karo
+  const dateKeys = Object.keys(userDates).filter(key => /^\d{4}-\d{2}-\d{2}$/.test(key));
+
+  // 🔽 Descending sort for latest date first
+  const sortedDates = dateKeys.sort((a, b) => b.localeCompare(a));
+
+  console.log(`👤 User: ${username}`);
+  console.log("📅 Sorted Dates:", sortedDates);
+
+  for (const date of sortedDates) {
+    const dayData = userDates[date];
+
+    console.log("📅 Showing data for date:", date);
+    console.log("🧾 Full dayData:", dayData);
+
+let signin = "-";
+let signout = "-";
+
+if ("signin" in dayData && typeof dayData.signin === "string") {
+  signin = dayData.signin;
+}
+if ("signout" in dayData && typeof dayData.signout === "string") {
+  signout = dayData.signout;
+}
+
+// Initialize durations
+let durations = {
+  Physics: "0h 0m 0s",
+  Chemistry: "0h 0m 0s",
+  Maths: "0h 0m 0s"
+};
+
+let hasSubjectData = false;
+
+for (const key in dayData) {
+  // ✅ Skip sign in / sign out keys
+  if (key === "signin" || key === "signout") continue;
+
+  const session = dayData[key];
+
+  // ✅ Now check only subject-based entries
+  if (session.subject && session.duration) {
+    const subject = session.subject;
+    hasSubjectData = true;
+
+    if (durations[subject]) {
+      durations[subject] = addDurations(durations[subject], session.duration);
+    }
+  }
+}
+
+
+    // Build table row
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${username}</td>
+      <td>${date}</td>
+      <td>${signin}</td>
+      <td>${signout}</td>
+      <td>${durations.Physics}</td>
+      <td>${durations.Chemistry}</td>
+      <td>${durations.Maths}</td>
+    `;
+    tbody.appendChild(row);
+  }
+}
+
+  } else {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="7">No sign log data found.</td>`;
+    tbody.appendChild(row);
+  }
+});
+
+function addDurations(d1, d2) {
+  const toSeconds = (str) => {
+    const parts = str.match(/(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?/) || [];
+    const h = parseInt(parts[1]) || 0;
+    const m = parseInt(parts[2]) || 0;
+    const s = parseInt(parts[3]) || 0;
+    return h * 3600 + m * 60 + s;
+  };
+
+  const toFormatted = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+
+  return toFormatted(toSeconds(d1) + toSeconds(d2));
+}
+
+
+
+  </script>
+
+  <style>
+    body {
+      background-color: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+        display: flex;
+  flex-direction: column;
+  align-items: center;
+
+    }
+
+    .card {
+      background-color: #1e1e1e;
+      padding: 30px;
+      border-radius: 16px;
+      width: 300px;
+      margin: auto;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+
+    input {
+      background-color: #2b2b2b;
+      color: white;
+      border: 1px solid #444;
+    }
+
+    button {
+      background-color: #6200ee;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #3700b3;
+    }
+
+    #controlPanel {
+      display: none;
+    }
+
+    #status {
+      font-size: 24px;
+      margin: 20px 0;
+    }
+
+    #logsPanel {
+  display: none;
+  margin: 40px auto 0 auto;
+  max-width: 90%;
+  background-color: #1e1e1e;
+  border-radius: 16px;
+  padding: 30px;
+  text-align: center;
+  align-items: center;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+}
+    #logoutBtn {
+    width: auto !important;
+    white-space: nowrap;
+}
+
+#logTable {
+  min-width: 80%;
+  width: auto;
+  align-items: center;
+  text-align: center;
+  border-collapse: collapse;
+  margin-top: 20px auto;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+#logTable th,
+#logTable td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid #444;
+}
+
+#logTable th {
+  background-color: #2e2e2e;
+  color: #00c3ff;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+#logTable td {
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+#logTable tr:hover {
+  background-color: #383838;
+  transition: background 0.3s;
+}
+  
+
+  </style>
+</head>
+<body>
+
+    <button id="logoutBtn" onclick="logout()" style="
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: none;
+    background-color: #d32f2f;
+    border: none;
+    padding: 6px 14px;
+    color: white;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    width: auto !important;
+    max-width: fit-content;
+    white-space: nowrap;
+">Logout</button>
+
+
+  <div class="card" id="loginForm">
+    <h2>Admin Login</h2>
+    <input type="text" id="username" placeholder="Username" value="admin">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div class="card" id="controlPanel">
+    <h2>Study Lock Control</h2>
+    <div id="status">Checking status...</div>
+    <button onclick="lock()">🔒 Lock</button>
+    <button onclick="unlock()">🔓 Unlock</button>
+  </div>
+
+  <div class="card" id="logsPanel" style="margin-top: 40px; display: none">
+  <h2>Logs</h2>
+  <table id="logTable">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Date</th>
+        <th>Sign In</th>
+        <th>Sign Off</th>
+        <th>Physics</th>
+        <th>Chemistry</th>
+        <th>Maths</th>
+      </tr>
+    </thead>
+    <tbody id="logBody">
+      <!-- Rows will be added here -->
+    </tbody>
+  </table>
+</div>
+
+
+</body>
+</html>

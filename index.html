@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GoStudy - Home</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      margin-top: 100px;
+    }
+
+    h1 {
+      font-size: 36px;
+      margin-bottom: 40px;
+    }
+
+    .nav-button {
+      display: block;
+      width: 220px;
+      margin: 20px auto;
+      padding: 15px;
+      font-size: 18px;
+      background-color: #6200ee;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .nav-button:hover {
+      background-color: #3700b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to GoStudy</h1>
+    <button class="nav-button" onclick="location.href='admin.html'">Admin Portal</button>
+    <button class="nav-button" onclick="location.href='user.html'">User Portal</button>
+    <button class="nav-button" onclick="location.href='about.html'">About / Info</button> <!-- Optional third -->
+  </div>
+</body>
+</html>
