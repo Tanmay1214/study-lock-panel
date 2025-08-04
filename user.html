@@ -1,0 +1,231 @@
+<!DOCTYPE html> 
+<html>
+<head>
+  <title>Sign In / Sign Off</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+ <script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMppQ_tX1LXZgA3yvRJHtJcEUkGERFiNI",
+    authDomain: "study-mode-aed91.firebaseapp.com",
+    databaseURL: "https://study-mode-aed91-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "study-mode-aed91",
+    storageBucket: "study-mode-aed91.appspot.com",
+    messagingSenderId: "531142916482",
+    appId: "1:531142916482:web:bc0b3ed4f46f554da9b79b"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+      function getTimeStamp() {
+      const now = new Date();
+      return now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function signIn() {
+      const username = "Tanmay";
+      const time = getTimeStamp();
+      db.ref(`users/${username}/${today}`).update({ signin: time }).then(() => {
+        document.getElementById("status").innerText = "Signed in at " + time;
+      });
+    }
+
+    function signOff() {
+      const username = "Tanmay";
+      const time = getTimeStamp();
+  db.ref(`users/${username}/${today}`).update({ signout: time }).then(() => {
+        document.getElementById("status").innerText = "Signed off at " + time;
+      });
+    }
+  let currentSubject = null;
+let startTime = null;
+let intervalId = null;
+let sessionCount = {};  // Track how many times a subject has been started per day
+let activeSessionKey = null;
+
+const username = "Tanmay"
+const today = new Date().toISOString().split('T')[0];
+
+function startSubject(subject) {
+    if (currentSubject) {
+        alert("Stop the current subject first.");
+        return;
+    }
+
+    currentSubject = subject;
+    startTime = Date.now();
+    intervalId = setInterval(updateDurationDisplay, 1000);
+
+    if (!sessionCount[subject]) sessionCount[subject] = 1;
+    else sessionCount[subject]++;
+
+    activeSessionKey = `${subject}-${sessionCount[subject]}`;
+    localStorage.setItem("activeSession", JSON.stringify({
+        subject, count: sessionCount[subject], startTime
+    }));
+
+    document.getElementById(`${subject}Start`).disabled = true;
+    document.getElementById(`${subject}Stop`).disabled = false;
+}
+
+function stopSubject(subject) {
+    if (currentSubject !== subject) return;
+
+    const endTime = Date.now();
+    clearInterval(intervalId);
+
+    const durationInSec = Math.floor((endTime - startTime) / 1000);
+const hours = Math.floor(durationInSec / 3600);
+const minutes = Math.floor((durationInSec % 3600) / 60);
+const seconds = durationInSec % 60;
+const formattedDuration = `${hours}h ${minutes}m ${seconds}s`;
+
+const ref = firebase.database().ref(`users/${username}/${today}/${activeSessionKey}`);
+ref.set({
+    subject,
+    startTime: new Date(startTime).toLocaleTimeString(),
+    endTime: new Date(endTime).toLocaleTimeString(),
+    duration: formattedDuration
+});
+
+    currentSubject = null;
+    startTime = null;
+    activeSessionKey = null;
+    localStorage.removeItem("activeSession");
+
+    document.getElementById(`${subject}Start`).disabled = false;
+    document.getElementById(`${subject}Stop`).disabled = true;
+    document.getElementById("timerDisplay").innerText = "";
+}
+
+function updateDurationDisplay() {
+    const now = Date.now();
+    const diffInSeconds = Math.floor((now - startTime) / 1000);
+
+    const hours = Math.floor(diffInSeconds / 3600);
+    const minutes = Math.floor((diffInSeconds % 3600) / 60);
+    const seconds = diffInSeconds % 60;
+
+    document.getElementById("timerDisplay").innerText =
+        `Current Session (${currentSubject}): ${hours}h ${minutes}m ${seconds}s`;
+}
+// Resume previous session on refresh
+window.onload = () => {
+    const saved = JSON.parse(localStorage.getItem("activeSession"));
+    if (saved) {
+        currentSubject = saved.subject;
+        sessionCount[saved.subject] = saved.count;
+        startTime = saved.startTime;
+        startTime = parseInt(startTime);
+        activeSessionKey = `${currentSubject}-${sessionCount[currentSubject]}`;
+        intervalId = setInterval(updateDurationDisplay, 1000);
+
+        document.getElementById(`${currentSubject}Start`).disabled = true;
+        document.getElementById(`${currentSubject}Stop`).disabled = false;
+    }
+}
+
+
+  </script>
+
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      padding-top: 40px;
+      margin: 0;
+    }
+
+    h2, h3 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #ffffff;
+    }
+
+    label {
+      font-size: 16px;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    input {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      width: 250px;
+      margin-bottom: 20px;
+      background-color: #1e1e1e;
+      color: #ffffff;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background-color: #6200ea;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #3700b3;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #90caf9;
+    }
+
+    .section {
+      margin-top: 40px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h2>Sign In / Sign Off</h2>
+  
+  <label>Username:</label>
+  <input type="text" id="username" value="Tanmay" placeholder="Enter username"><br><br>
+  
+  <button onclick="signIn()">Sign In</button>
+  <button onclick="signOff()">Sign Off</button>
+
+  <p id="status"></p>
+
+  <!-- STUDY LOGGER SECTION -->
+  <h3>Study Tracker</h3>
+<div id="subjectButtons">
+  <div>
+    <button onclick="startSubject('Chemistry')" id="ChemistryStart">Start Chemistry</button>
+    <button onclick="stopSubject('Chemistry')" id="ChemistryStop">Stop Chemistry</button>
+  </div>
+  <div>
+    <button onclick="startSubject('Physics')" id="PhysicsStart">Start Physics</button>
+    <button onclick="stopSubject('Physics')" id="PhysicsStop">Stop Physics</button>
+  </div>
+  <div>
+    <button onclick="startSubject('Maths')" id="MathsStart">Start Maths</button>
+    <button onclick="stopSubject('Maths')" id="MathsStop">Stop Maths</button>
+
+    <p id="studyStatus" style="margin-top:20px; color:#90caf9;"></p>
+
+    <p id="timerDisplay" style="margin-top: 20px; font-size: 18px; color: #90caf9;"></p>
+
+
+  </div>
+</div>
+
+
+</body>
+</html>
